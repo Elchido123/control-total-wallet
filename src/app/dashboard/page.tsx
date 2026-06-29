@@ -8,9 +8,9 @@ import { useRouter } from "next/navigation";
 import { Send, Download, ArrowLeftRight, Receipt } from "lucide-react";
 
 const quickActions = [
-  { icon: Send, label: "Enviar", color: "#00D2FF", href: "/dashboard/stores" },
-  { icon: Download, label: "Recibir", color: "#00E676", href: "/dashboard/profile" },
-  { icon: ArrowLeftRight, label: "Transferir", color: "#FFD740", href: "/dashboard/stores" },
+  { icon: ArrowLeftRight, label: "Transferir", color: "#FFD740", href: "/dashboard/transfer" },
+  { icon: Send, label: "Enviar", color: "#00D2FF", href: "/dashboard/transfer" },
+  { icon: Download, label: "Recibir", color: "#00E676", href: "/dashboard/transfer" },
   { icon: Receipt, label: "Historial", color: "#FF6B8A", href: "/dashboard/transactions" },
 ];
 

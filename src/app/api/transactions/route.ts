@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
-  const { storeId, monto, concepto, cardId } = body as { storeId?: string; monto?: number; concepto?: string; cardId?: number };
+  const { storeId, monto, concepto, cardId, tipo } = body as { storeId?: string; monto?: number; concepto?: string; cardId?: number; tipo?: string };
 
   if (!monto || monto <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
@@ -71,12 +71,15 @@ export async function POST(req: Request) {
   const userId = safeUserId(session.user.id);
   if (!userId) return NextResponse.json({ error: "ID de usuario inválido" }, { status: 400 });
 
+  const isTransfer = tipo === "transfer" || !storeId;
+  const resolvedTipo = tipo ?? (storeId ? "gasto" : "transfer");
+
   const pipeline = new FraudPipeline();
   const validation = await pipeline.validate({
     userId,
     cardId,
     monto,
-    storeId,
+    storeId: isTransfer ? undefined : storeId,
   });
 
   if (!validation.canProceed) {
@@ -121,11 +124,11 @@ export async function POST(req: Request) {
     .values({
       userId,
       cardId: updatedCard.id,
-      storeId,
+      storeId: isTransfer ? null : storeId,
       monto,
-      concepto: concepto ?? "Pago en tienda",
+      concepto: concepto ?? (isTransfer ? "Transferencia P2P" : "Pago en tienda"),
       estado: "approved",
-      tipo: "gasto",
+      tipo: resolvedTipo,
     })
     .returning();
 

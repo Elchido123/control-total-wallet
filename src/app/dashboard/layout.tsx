@@ -6,11 +6,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
-import { LogOut, Home, Store, User, Receipt, CreditCard, Puzzle, Activity, ArrowLeftRight } from "lucide-react";
+import { LogOut, Home, Store, User, Receipt, CreditCard, Puzzle, Activity, ArrowLeftRight, ShoppingBag } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Inicio", icon: Home },
   { href: "/dashboard/transfer", label: "Transferir", icon: ArrowLeftRight },
+  { href: "/dashboard/shop", label: "Tienda", icon: ShoppingBag },
   { href: "/dashboard/stores", label: "Tiendas", icon: Store },
   { href: "/dashboard/cards", label: "Tarjetas", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Movimientos", icon: Receipt },

@@ -5,12 +5,12 @@ import StoreGrid from "@/components/stores/StoreGrid";
 import TransactionList from "@/components/wallet/TransactionList";
 import StatusIndicator from "@/components/antifraud/StatusIndicator";
 import { useRouter } from "next/navigation";
-import { Send, Download, ArrowLeftRight, Receipt } from "lucide-react";
+import { Send, ShoppingBag, ArrowLeftRight, Receipt } from "lucide-react";
 
 const quickActions = [
   { icon: ArrowLeftRight, label: "Transferir", color: "#FFD740", href: "/dashboard/transfer" },
   { icon: Send, label: "Enviar", color: "#00D2FF", href: "/dashboard/transfer" },
-  { icon: Download, label: "Recibir", color: "#00E676", href: "/dashboard/transfer" },
+  { icon: ShoppingBag, label: "Tienda", color: "#FF6B8A", href: "/dashboard/shop" },
   { icon: Receipt, label: "Historial", color: "#FF6B8A", href: "/dashboard/transactions" },
 ];
 

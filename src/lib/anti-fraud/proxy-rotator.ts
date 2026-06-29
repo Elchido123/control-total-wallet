@@ -1,73 +1,53 @@
 import { db } from "@/lib/db";
 import { proxies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import * as fs from "fs";
-import * as path from "path";
+import { ProxyConfig, ProxyProvider } from "./proxy-providers";
+import { MxSyntheticProvider } from "./providers/mx-synthetic";
 
-interface ProxyConfig {
-  type: "mock" | "residential" | "datacenter";
-  ip: string;
-  port: number;
-  username?: string;
-  password?: string;
-  pais?: string;
+interface CircuitState {
+  failures: number;
+  openedAt: number;
+  countryFailures: Map<string, number>;
 }
 
-interface ProxyHealth {
-  proxy: ProxyConfig;
-  lastCheck: number;
-  successful: boolean;
-  latencyMs: number;
+interface ProxyScore {
+  ip: string;
+  successCount: number;
   failCount: number;
+  lastUsed: number;
 }
 
 class ProxyRotator {
-  private pool: ProxyConfig[] = [];
-  private currentIndex = 0;
-  private healthMap: Map<string, ProxyHealth> = new Map();
-  private circuitBreaker: Map<string, { failures: number; openedAt: number }> = new Map();
+  private providers: ProxyProvider[] = [];
+  private circuitBreaker: Map<string, CircuitState> = new Map();
   private readonly CIRCUIT_THRESHOLD = 3;
   private readonly CIRCUIT_RESET_MS = 5 * 60 * 1000;
+  private readonly COUNTRY_FAILURE_THRESHOLD = 0.5;
+  private readonly COUNTRY_WINDOW_MS = 5 * 60 * 1000;
 
-  constructor(pool?: ProxyConfig[]) {
-    if (pool && pool.length > 0) {
-      this.pool = pool;
-    } else {
-      this.pool = this.loadFromConfig();
+  private userProxyHistory: Map<string, string[]> = new Map();
+  private readonly MAX_HISTORY_PER_USER = 3;
+
+  private scores: Map<string, ProxyScore> = new Map();
+
+  constructor() {
+    const syntheticProvider = new MxSyntheticProvider();
+    if (syntheticProvider.getPoolSize() > 0) {
+      this.providers.push(syntheticProvider);
     }
-    if (this.pool.length === 0) {
-      this.pool = this.getDefaultPool();
-    }
-  }
-
-  private loadFromConfig(): ProxyConfig[] {
-    try {
-      const configPath = path.join(process.cwd(), "proxy-config.json");
-      if (fs.existsSync(configPath)) {
-        const raw = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-        return raw.proxies ?? [];
-      }
-    } catch {}
-    return [];
-  }
-
-  private getDefaultPool(): ProxyConfig[] {
-    return [
-      { type: "mock", ip: "192.168.1.100", port: 3128, pais: "MX" },
-      { type: "mock", ip: "192.168.1.101", port: 3128, pais: "MX" },
-      { type: "mock", ip: "10.0.0.50", port: 8080, pais: "US" },
-    ];
   }
 
   async syncFromDatabase(): Promise<void> {
     const dbProxies = await db.select().from(proxies).where(eq(proxies.activo, true));
     if (dbProxies.length > 0) {
-      this.pool = dbProxies.map((p) => ({
-        type: (p.tipo as ProxyConfig["type"]) ?? "datacenter",
-        ip: p.ip,
-        port: p.puerto ?? 3128,
-        pais: p.pais ?? "MX",
-      }));
+      for (const p of dbProxies) {
+        const config: ProxyConfig = {
+          type: (p.tipo as ProxyConfig["type"]) ?? "datacenter",
+          ip: p.ip,
+          port: p.puerto ?? 3128,
+          pais: p.pais ?? "MX",
+        };
+      }
     }
   }
 
@@ -75,123 +55,166 @@ class ProxyRotator {
     return `${p.ip}:${p.port}`;
   }
 
-  private isCircuitOpen(key: string): boolean {
-    const circuit = this.circuitBreaker.get(key);
-    if (!circuit) return false;
-    if (Date.now() - circuit.openedAt > this.CIRCUIT_RESET_MS) {
-      this.circuitBreaker.delete(key);
-      return false;
+  private getCountryCircuitState(country: string): CircuitState {
+    const key = `country:${country}`;
+    let state = this.circuitBreaker.get(key);
+    if (!state) {
+      state = { failures: 0, openedAt: 0, countryFailures: new Map() };
+      this.circuitBreaker.set(key, state);
+    } else if (Date.now() - state.openedAt > this.CIRCUIT_RESET_MS) {
+      state.failures = 0;
+      state.openedAt = 0;
     }
-    return circuit.failures >= this.CIRCUIT_THRESHOLD;
+    return state;
   }
 
-  private markFailure(key: string): void {
-    const circuit = this.circuitBreaker.get(key) ?? { failures: 0, openedAt: Date.now() };
-    circuit.failures++;
-    circuit.openedAt = Date.now();
-    this.circuitBreaker.set(key, circuit);
+  private isCountryCircuitOpen(country: string): boolean {
+    const state = this.getCountryCircuitState(country);
+    if (state.failures === 0) return false;
+
+    const recentFailures = Array.from(state.countryFailures.values());
+    const total = recentFailures.length;
+    const failed = recentFailures.filter((v) => v > 0).length;
+
+    return total > 0 && (failed / total) >= this.COUNTRY_FAILURE_THRESHOLD;
   }
 
-  async getNextProxy(options?: {
+  private markCountryFailure(country: string): void {
+    const state = this.getCountryCircuitState(country);
+    state.failures++;
+    const now = Date.now();
+    for (const [ip, _] of state.countryFailures) {
+      if (now - state.openedAt > this.COUNTRY_WINDOW_MS) {
+        state.countryFailures.delete(ip);
+      }
+    }
+    state.countryFailures.set(`failure_${now}`, 1);
+    state.openedAt = now;
+  }
+
+  private markCountrySuccess(country: string): void {
+    const state = this.getCountryCircuitState(country);
+    state.failures = Math.max(0, state.failures - 1);
+  }
+
+  private getUserExcludeIps(userId: string): Set<string> {
+    const history = this.userProxyHistory.get(userId) ?? [];
+    return new Set(history);
+  }
+
+  private recordProxyForUser(userId: string, ip: string): void {
+    let history = this.userProxyHistory.get(userId) ?? [];
+    history.push(ip);
+    if (history.length > this.MAX_HISTORY_PER_USER) {
+      history = history.slice(history.length - this.MAX_HISTORY_PER_USER);
+    }
+    this.userProxyHistory.set(userId, history);
+  }
+
+  private updateScore(ip: string, success: boolean): void {
+    let score = this.scores.get(ip);
+    if (!score) {
+      score = { ip, successCount: 0, failCount: 0, lastUsed: Date.now() };
+      this.scores.set(ip, score);
+    }
+    if (success) {
+      score.successCount++;
+      score.failCount = Math.max(0, score.failCount - 1);
+    } else {
+      score.failCount++;
+    }
+    score.lastUsed = Date.now();
+  }
+
+  private getBestScore(proxies: ProxyConfig[]): number {
+    if (proxies.length === 0) return 0;
+    let best = -Infinity;
+    for (const p of proxies) {
+      const score = this.scores.get(p.ip);
+      const value = score ? score.successCount - score.failCount * 5 : 0;
+      if (value > best) best = value;
+    }
+    return best;
+  }
+
+  private selectByScore(proxies: ProxyConfig[]): ProxyConfig | null {
+    if (proxies.length === 0) return null;
+    let best = -Infinity;
+    let bestProxy = proxies[0];
+    for (const p of proxies) {
+      const score = this.scores.get(p.ip);
+      const value = score ? score.successCount - score.failCount * 5 : 0;
+      if (value > best) {
+        best = value;
+        bestProxy = p;
+      }
+    }
+    return bestProxy;
+  }
+
+  async getNextProxy(userId: string, options?: {
     pais?: string;
-    tipo?: ProxyConfig["type"];
-  }): Promise<ProxyConfig> {
+  }): Promise<ProxyConfig | null> {
     await this.syncFromDatabase();
 
-    let candidates = this.pool.filter((p) => {
-      const key = this.getProxyKey(p);
-      return !this.isCircuitOpen(key);
-    });
+    const pais = options?.pais ?? "MX";
 
-    if (candidates.length === 0) {
-      this.circuitBreaker.clear();
-      candidates = [...this.pool];
+    if (this.isCountryCircuitOpen(pais)) {
+      return null;
     }
 
-    if (options?.pais) {
-      const byCountry = candidates.filter((p) => p.pais === options.pais);
-      if (byCountry.length > 0) candidates = byCountry;
+    const excludeIps = this.getUserExcludeIps(userId);
+
+    for (const provider of this.providers) {
+      const proxy = await provider.getNext(userId, excludeIps);
+      if (proxy) {
+        this.recordProxyForUser(userId, proxy.ip);
+        return proxy;
+      }
     }
 
-    if (options?.tipo) {
-      const byType = candidates.filter((p) => p.type === options.tipo);
-      if (byType.length > 0) candidates = byType;
-    }
-
-    const proxy = candidates[this.currentIndex % candidates.length];
-    this.currentIndex++;
-    return proxy;
+    return null;
   }
 
   async markFailed(proxy: ProxyConfig): Promise<void> {
-    const key = this.getProxyKey(proxy);
-    this.markFailure(key);
-    await db.update(proxies)
-      .set({ activo: false, ultimoUso: new Date().toISOString() })
-      .where(eq(proxies.ip, proxy.ip));
-  }
-
-  async checkHealth(proxy: ProxyConfig): Promise<boolean> {
-    const key = this.getProxyKey(proxy);
-    const start = Date.now();
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch("http://httpbin.org/ip", {
-        signal: controller.signal,
-        ...(proxy.type === "mock"
-          ? {}
-          : {
-              headers: {
-                "Proxy-Authorization":
-                  proxy.username && proxy.password
-                    ? "Basic " + Buffer.from(`${proxy.username}:${proxy.password}`).toString("base64")
-                    : "",
-              },
-            }),
-      });
-      clearTimeout(timeout);
-
-      const latency = Date.now() - start;
-      const healthy = response.ok;
-
-      this.healthMap.set(key, {
-        proxy,
-        lastCheck: Date.now(),
-        successful: healthy,
-        latencyMs: latency,
-        failCount: healthy ? 0 : (this.healthMap.get(key)?.failCount ?? 0) + 1,
-      });
-
-      return healthy;
-    } catch {
-      this.healthMap.set(key, {
-        proxy,
-        lastCheck: Date.now(),
-        successful: false,
-        latencyMs: Date.now() - start,
-        failCount: (this.healthMap.get(key)?.failCount ?? 0) + 1,
-      });
-      return false;
+    this.markCountryFailure(proxy.pais ?? "MX");
+    this.updateScore(proxy.ip, false);
+    for (const provider of this.providers) {
+      await provider.reportStatus(proxy, false);
     }
   }
 
-  async rotateForTransaction(userId: string): Promise<{ proxy: ProxyConfig; rotated: boolean }> {
-    await this.syncFromDatabase();
-    const proxy = await this.getNextProxy({ pais: "MX" });
+  async markSuccess(proxy: ProxyConfig): Promise<void> {
+    this.markCountrySuccess(proxy.pais ?? "MX");
+    this.updateScore(proxy.ip, true);
+    for (const provider of this.providers) {
+      await provider.reportStatus(proxy, true);
+    }
+  }
+
+  async rotateForTransaction(userId: string): Promise<{ proxy: ProxyConfig | null; rotated: boolean }> {
+    const proxy = await this.getNextProxy(userId, { pais: "MX" });
     return { proxy, rotated: true };
   }
 
   getPoolStats() {
+    const poolSize = this.providers.reduce((acc, p) => acc + p.getPoolSize(), 0);
     return {
-      total: this.pool.length,
-      healthy: this.pool.filter((p) => {
-        const health = this.healthMap.get(this.getProxyKey(p));
-        return health?.successful !== false;
-      }).length,
+      total: poolSize,
+      healthy: poolSize,
       failed: this.circuitBreaker.size,
     };
+  }
+
+  getCircuitState(): Record<string, { open: boolean; failures: number }> {
+    const states: Record<string, { open: boolean; failures: number }> = {};
+    for (const [key, state] of this.circuitBreaker) {
+      states[key] = {
+        open: state.failures >= this.CIRCUIT_THRESHOLD,
+        failures: state.failures,
+      };
+    }
+    return states;
   }
 }
 

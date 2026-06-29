@@ -2,17 +2,22 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Plus, CreditCard, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
-import Link from "next/link";
 import { useState } from "react";
 import { formatMoney } from "@/lib/utils/format";
 import AddCardModal from "@/components/cards/AddCardModal";
 import { useToast } from "@/components/ui/Toast";
+import type { cards } from "@/lib/db/schema";
+import type { InferSelectModel } from "drizzle-orm";
+
+type Card = InferSelectModel<typeof cards>;
 
 export default function CardsPage() {
   const [showAdd, setShowAdd] = useState(false);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const { addToast } = useToast();
 
-  const { data: cardsList, refetch } = useQuery({
+  const { data: cardsRaw, refetch, isError } = useQuery({
     queryKey: ["cards"],
     queryFn: async () => {
       const res = await fetch("/api/cards");
@@ -21,33 +26,45 @@ export default function CardsPage() {
     },
   });
 
+  const cardsList = Array.isArray(cardsRaw?.data) ? cardsRaw.data : Array.isArray(cardsRaw) ? cardsRaw : [];
+
   const toggleCard = async (cardId: number, activa: boolean) => {
-    const res = await fetch(`/api/cards/${cardId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ activa: !activa }),
-    });
-    if (!res.ok) {
-      addToast("Error al cambiar estado de la tarjeta", "error");
-      return;
+    setLoadingId(cardId);
+    try {
+      const res = await fetch(`/api/cards/${cardId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activa: !activa }),
+      });
+      if (!res.ok) {
+        addToast("Error al cambiar estado de la tarjeta", "error");
+        return;
+      }
+      addToast(
+        activa ? "Tarjeta desactivada" : "Tarjeta activada",
+        "success"
+      );
+      refetch();
+    } finally {
+      setLoadingId(null);
     }
-    addToast(
-      activa ? "Tarjeta desactivada" : "Tarjeta activada",
-      "success"
-    );
-    refetch();
   };
 
   const deleteCard = async (cardId: number) => {
     if (!confirm("¿Eliminar esta tarjeta?")) return;
-    const res = await fetch(`/api/cards/${cardId}`, { method: "DELETE" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      addToast(data.error ?? "Error al eliminar la tarjeta", "error");
-      return;
+    setDeletingId(cardId);
+    try {
+      const res = await fetch(`/api/cards/${cardId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        addToast(data.error ?? "Error al eliminar la tarjeta", "error");
+        return;
+      }
+      addToast("Tarjeta eliminada correctamente", "success");
+      refetch();
+    } finally {
+      setDeletingId(null);
     }
-    addToast("Tarjeta eliminada correctamente", "success");
-    refetch();
   };
 
   return (
@@ -63,7 +80,16 @@ export default function CardsPage() {
         </button>
       </div>
 
-      {(!cardsList || cardsList.length === 0) && (
+      {isError && (
+        <div className="text-center py-16">
+          <p className="text-error font-semibold">Error al cargar las tarjetas</p>
+          <button onClick={() => refetch()} className="mt-4 text-primary-light font-semibold text-sm">
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {!isError && (!cardsList || cardsList.length === 0) && (
         <div className="text-center py-16">
           <CreditCard size={48} className="text-text-muted mx-auto mb-4" />
           <p className="text-text-secondary">No tienes tarjetas registradas</p>
@@ -78,7 +104,7 @@ export default function CardsPage() {
 
       <div className="space-y-3">
         {Array.isArray(cardsList) &&
-          cardsList.map((card: any) => (
+          cardsList.map((card: Card) => (
             <div
               key={card.id}
               className="bg-surface rounded-2xl p-5 border border-border"
@@ -123,8 +149,11 @@ export default function CardsPage() {
 
               <div className="flex justify-end gap-2 pt-3 border-t border-border">
                 <button
-                  onClick={() => toggleCard(card.id, card.activa)}
-                  className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg ${
+                  onClick={() => toggleCard(card.id, !!card.activa)}
+                  disabled={loadingId === card.id}
+                  className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity ${
+                    loadingId === card.id ? "opacity-50 cursor-not-allowed" : ""
+                  } ${
                     card.activa
                       ? "bg-warning/20 text-warning"
                       : "bg-success/20 text-success"
@@ -135,14 +164,17 @@ export default function CardsPage() {
                   ) : (
                     <ToggleLeft size={14} />
                   )}
-                  {card.activa ? "Desactivar" : "Activar"}
+                  {loadingId === card.id ? "..." : card.activa ? "Desactivar" : "Activar"}
                 </button>
                 <button
                   onClick={() => deleteCard(card.id)}
-                  className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-error/20 text-error"
+                  disabled={deletingId === card.id}
+                  className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity ${
+                    deletingId === card.id ? "opacity-50 cursor-not-allowed" : "bg-error/20 text-error"
+                  }`}
                 >
                   <Trash2 size={14} />
-                  Eliminar
+                  {deletingId === card.id ? "..." : "Eliminar"}
                 </button>
               </div>
             </div>

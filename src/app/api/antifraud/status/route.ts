@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, transactions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, gte, and } from "drizzle-orm";
 import { CooldownManager } from "@/lib/anti-fraud/cooldown-manager";
 import { NextResponse } from "next/server";
 import { safeUserId } from "@/lib/utils/format";
@@ -23,16 +23,19 @@ export async function GET() {
   const card = userCards[0] ?? null;
 
   const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  todayStart.setUTCHours(0, 0, 0, 0);
 
-  const allTx = await db
+  const todayTx = await db
     .select()
     .from(transactions)
-    .where(eq(transactions.userId, userId));
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        gte(transactions.createdAt, todayStart)
+      )
+    );
 
-  const todayTxCount = allTx.filter(
-    (t) => new Date(t.createdAt ?? "").getTime() > todayStart.getTime()
-  ).length;
+  const todayTxCount = todayTx.length;
 
   let cooldownActive = false;
   let cooldownUntil: string | null = null;
@@ -42,7 +45,7 @@ export async function GET() {
     const cooldown = new CooldownManager();
     const status = await cooldown.checkCooldown(card.id);
     cooldownActive = status.blocked;
-    cooldownUntil = card.bloqueadaHasta ?? null;
+    cooldownUntil = card.bloqueadaHasta?.toISOString() ?? null;
     cooldownRemainingMs = status.remainingMs;
   }
 

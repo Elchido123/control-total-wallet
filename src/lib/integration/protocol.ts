@@ -1,4 +1,4 @@
-export const CTW_ORIGIN = "https://control-total-wallet.vercel.app";
+export const CTW_ORIGIN = process.env.NEXT_PUBLIC_APP_URL ?? "https://control-total-wallet.vercel.app";
 
 export interface PaymentInitMessage {
   type: "PAYMENT_INIT";
@@ -43,5 +43,6 @@ export type IframeMessage =
   | PongMessage;
 
 export function isValidOrigin(origin: string): boolean {
+  if (typeof window === "undefined") return origin === CTW_ORIGIN;
   return origin === CTW_ORIGIN || origin === window.location.origin;
 }

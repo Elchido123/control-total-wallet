@@ -12,7 +12,6 @@ export default function AddCardModal({ onClose, onAdded }: Props) {
   const [numero, setNumero] = useState("");
   const [titular, setTitular] = useState("");
   const [expiracion, setExpiracion] = useState("");
-  const [cvv, setCvv] = useState("");
   const [banco, setBanco] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +25,7 @@ export default function AddCardModal({ onClose, onAdded }: Props) {
       const res = await fetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ numero, titular, expiracion, cvv, banco: banco || "Otro" }),
+        body: JSON.stringify({ numero, titular, expiracion, banco: banco || "Otro" }),
       });
 
       if (!res.ok) {
@@ -43,11 +42,11 @@ export default function AddCardModal({ onClose, onAdded }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" role="dialog" aria-modal="true" aria-labelledby="add-card-title">
       <div className="bg-surface rounded-2xl w-full max-w-sm border border-border p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-white font-bold text-lg">Agregar Tarjeta</h3>
-          <button onClick={onClose}>
+          <h3 id="add-card-title" className="text-white font-bold text-lg">Agregar Tarjeta</h3>
+          <button onClick={onClose} aria-label="Cerrar">
             <X size={20} className="text-text-secondary" />
           </button>
         </div>
@@ -81,33 +80,19 @@ export default function AddCardModal({ onClose, onAdded }: Props) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-text-secondary text-xs font-semibold block mb-1">
-                Vencimiento
-              </label>
-              <input
-                type="text"
-                value={expiracion}
-                onChange={(e) => setExpiracion(e.target.value)}
-                placeholder="MM/AA"
-                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-white placeholder:text-text-muted text-sm focus:outline-none focus:border-primary-light"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-text-secondary text-xs font-semibold block mb-1">
-                CVV
-              </label>
-              <input
-                type="text"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value)}
-                placeholder="***"
-                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-white placeholder:text-text-muted text-sm focus:outline-none focus:border-primary-light"
-                required
-              />
-            </div>
+          <div>
+            <label htmlFor="expiracion" className="text-text-secondary text-xs font-semibold block mb-1">
+              Vencimiento
+            </label>
+            <input
+              id="expiracion"
+              type="text"
+              value={expiracion}
+              onChange={(e) => setExpiracion(e.target.value)}
+              placeholder="MM/AA"
+              className="w-full bg-card border border-border rounded-xl px-4 py-3 text-white placeholder:text-text-muted text-sm focus:outline-none focus:border-primary-light"
+              required
+            />
           </div>
 
           <div>
@@ -124,7 +109,7 @@ export default function AddCardModal({ onClose, onAdded }: Props) {
           </div>
 
           {error && (
-            <p className="text-error text-sm font-semibold text-center">{error}</p>
+            <p className="text-error text-sm font-semibold text-center" role="alert">{error}</p>
           )}
 
           <button

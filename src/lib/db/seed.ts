@@ -72,19 +72,18 @@ async function seed() {
       })
       .returning();
 
-    await db.insert(cards).values({
+    const [card] = await db.insert(cards).values({
       userId: result.id,
       numero: u.tarjeta,
       titular: u.nombre,
       expiracion: "12/28",
-      cvv: "123",
       saldo: u.saldo,
-    });
+    }).returning();
 
     for (const m of u.movimientos) {
       await db.insert(transactions).values({
         userId: result.id,
-        cardId: result.id,
+        cardId: card.id,
         monto: Math.abs(m.monto),
         concepto: m.concepto,
         estado: "approved",

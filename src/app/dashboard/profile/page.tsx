@@ -6,9 +6,15 @@ import { signOut } from "next-auth/react";
 import { LogOut, Edit2 } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import type { transactions } from "@/lib/db/schema";
+import type { InferSelectModel } from "drizzle-orm";
+import { useToast } from "@/components/ui/Toast";
+
+type Transaction = InferSelectModel<typeof transactions>;
 
 export default function ProfilePage() {
   const { data: session, update } = useSession();
+  const { addToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [nombre, setNombre] = useState("");
   const [direccion, setDireccion] = useState("");
@@ -44,14 +50,14 @@ export default function ProfilePage() {
   const txList = Array.isArray(transactions?.data ?? transactions) ? (transactions?.data ?? transactions) : [];
 
   const totalGastos = txList
-    .filter((t: any) => t.tipo === "gasto")
-    .reduce((a: number, t: any) => a + t.monto, 0);
+    .filter((t: Transaction) => t.tipo === "gasto")
+    .reduce((a: number, t: Transaction) => a + (t.monto ?? 0), 0);
   const totalIngresos = txList
-    .filter((t: any) => t.tipo === "ingreso")
-    .reduce((a: number, t: any) => a + t.monto, 0);
+    .filter((t: Transaction) => t.tipo === "ingreso")
+    .reduce((a: number, t: Transaction) => a + (t.monto ?? 0), 0);
 
-  const formatMoney = (n: number) =>
-    "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const fmtMoney = (n: number) =>
+    (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
   const startEdit = () => {
     setNombre(userData?.nombre ?? "");
@@ -70,7 +76,10 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error("Error al guardar");
       update();
       setEditing(false);
-    } catch {}
+    } catch (e) {
+      addToast("Error al guardar el perfil", "error");
+      console.error("Error saving profile:", e);
+    }
   };
 
   return (
@@ -86,7 +95,7 @@ export default function ProfilePage() {
           {userData?.nombre ?? session?.user?.name}
         </h1>
         <p className="text-text-muted text-sm mt-1 tracking-wider">
-          ID: CTW-{(session?.user?.id ?? "").padStart(4, "0")}
+          ID: CTW-{String(session?.user?.id ?? "").padStart(4, "0")}
         </p>
         <button
           onClick={startEdit}
@@ -100,13 +109,13 @@ export default function ProfilePage() {
         <div className="flex-1 bg-surface rounded-2xl p-4 border border-border text-center">
           <p className="text-text-secondary text-sm mb-1">Ingresos</p>
           <p className="text-success text-lg font-bold">
-            {formatMoney(totalIngresos)}
+            {fmtMoney(totalIngresos)}
           </p>
         </div>
         <div className="flex-1 bg-surface rounded-2xl p-4 border border-border text-center">
           <p className="text-text-secondary text-sm mb-1">Gastos</p>
           <p className="text-accent text-lg font-bold">
-            {formatMoney(totalGastos)}
+            {fmtMoney(totalGastos)}
           </p>
         </div>
       </div>
@@ -117,7 +126,7 @@ export default function ProfilePage() {
           { label: "Teléfono", value: userData?.telefono ?? "—" },
           { label: "Dirección", value: userData?.direccion ?? "—" },
           { label: "Tarjeta", value: balance?.numero ?? "****" },
-          { label: "Saldo", value: formatMoney(balance?.saldo ?? 0) },
+          { label: "Saldo", value: fmtMoney(balance?.saldo ?? 0) },
           {
             label: "Movimientos",
             value: `${txList.length} registros`,

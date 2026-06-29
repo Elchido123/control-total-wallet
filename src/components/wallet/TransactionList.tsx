@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoney } from "@/lib/utils/format";
 import { Filter, ChevronDown } from "lucide-react";
+import type { transactions } from "@/lib/db/schema";
+import type { InferSelectModel } from "drizzle-orm";
+
+type Transaction = InferSelectModel<typeof transactions>;
 
 export default function TransactionList() {
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -116,7 +120,7 @@ export default function TransactionList() {
         </p>
       )}
 
-      {txList.map((tx: any) => {
+      {txList.map((tx: Transaction) => {
         const isIncome = tx.tipo === "ingreso";
         return (
           <div
@@ -134,12 +138,12 @@ export default function TransactionList() {
                   {tx.concepto}
                 </p>
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusColor(tx.estado)} bg-current/10`}
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${statusColor(tx.estado ?? "")} bg-current/10`}
                 >
-                  {statusLabel(tx.estado)}
+                  {statusLabel(tx.estado ?? "")}
                 </span>
               </div>
-              <p className="text-text-muted text-xs mt-0.5">{tx.createdAt}</p>
+              <p className="text-text-muted text-xs mt-0.5">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : ""}</p>
             </div>
             <p
               className={`text-sm font-bold shrink-0 ml-3 ${

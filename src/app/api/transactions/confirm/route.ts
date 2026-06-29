@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, transactions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { CooldownManager } from "@/lib/anti-fraud/cooldown-manager";
+import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { safeUserId } from "@/lib/utils/format";
 
@@ -12,10 +11,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { transactionId, status } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+  const { transactionId, status } = body as { transactionId?: number; status?: string };
 
-  if (!transactionId || !["approved", "rejected"].includes(status)) {
+  if (!transactionId || !["approved", "rejected"].includes(status ?? "")) {
     return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
   }
 
@@ -49,29 +53,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 400 });
     }
     
-    if ((card.saldo ?? 0) < (tx.monto ?? 0)) {
-      return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
-    }
-
-    const nuevoSaldo = (card.saldo ?? 0) - (tx.monto ?? 0);
-    await db.update(cards)
-      .set({ saldo: nuevoSaldo })
-      .where(eq(cards.id, card.id));
+    await db.execute(sql`
+      UPDATE cards SET saldo = saldo - ${tx.monto}
+      WHERE id = ${card.id} AND saldo >= ${tx.monto}
+    `);
 
     await db.update(transactions)
       .set({ estado: "approved" })
       .where(eq(transactions.id, transactionId));
 
   } else {
-    const [card] = tx.cardId
-      ? await db.select().from(cards).where(eq(cards.id, tx.cardId))
-      : [null];
-
-    if (card) {
-      const cooldown = new CooldownManager();
-      await cooldown.activateCooldown(card.id);
-    }
-
     await db.update(transactions)
       .set({ estado: "rejected" })
       .where(eq(transactions.id, transactionId));

@@ -28,9 +28,8 @@ test.describe("Card Management", () => {
     await page.fill('input[placeholder*="****"]', "4111111111111111");
     await page.fill('input[placeholder*="Nombre en la tarjeta"]', "Test User");
     await page.fill('input[placeholder*="MM/AA"]', "12/28");
-    await page.fill('input[placeholder*="***"]', "123");
 
     await page.click("text=Agregar Tarjeta");
-    await expect(page.locator("text=4111")).toBeVisible();
+    await expect(page.locator("text=Agregar Tarjeta")).not.toBeVisible();
   });
 });

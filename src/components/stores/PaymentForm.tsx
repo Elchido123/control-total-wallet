@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoney } from "@/lib/utils/format";
 import { ExternalLink, Shield, ShieldOff, Clock } from "lucide-react";
+import { MAX_TRANSACTION_AMOUNT } from "@/lib/constants";
 
 interface Store {
   id: string;
@@ -57,8 +58,8 @@ export default function PaymentForm({ store }: { store: Store }) {
       setError("Ingresa un monto válido");
       return;
     }
-    if (montoNum > 19000) {
-      setError("El monto máximo por transacción es $19,000 MXN");
+    if (montoNum > MAX_TRANSACTION_AMOUNT) {
+      setError(`El monto máximo por transacción es $${MAX_TRANSACTION_AMOUNT.toLocaleString()} MXN`);
       return;
     }
     if (!selectedCard) {
@@ -162,7 +163,7 @@ export default function PaymentForm({ store }: { store: Store }) {
           </span>
         </div>
         <span className="text-text-muted text-xs">
-          Límite: {formatMoney(19000)}
+          Límite: {formatMoney(MAX_TRANSACTION_AMOUNT)}
         </span>
       </div>
 

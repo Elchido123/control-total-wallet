@@ -1,7 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Shield, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import type { transactions } from "@/lib/db/schema";
+import type { InferSelectModel } from "drizzle-orm";
+
+type Transaction = InferSelectModel<typeof transactions>;
 
 export default function MonitorPage() {
   const { data: antifraud, refetch: refetchAF } = useQuery({
@@ -34,7 +38,7 @@ export default function MonitorPage() {
     refetchInterval: 10000,
   });
 
-  const { data: recentTx } = useQuery({
+  const { data: recentTx, isError: isTxError } = useQuery({
     queryKey: ["recent-transactions"],
     queryFn: async () => {
       const res = await fetch("/api/transactions?limite=5");
@@ -117,13 +121,18 @@ export default function MonitorPage() {
           <Activity size={16} className="text-primary-light" />
           Últimas Transacciones
         </h3>
-        {txList.length === 0 && (
+        {isTxError && (
+          <p className="text-error text-xs text-center py-4">
+            Error al cargar transacciones
+          </p>
+        )}
+        {!isTxError && txList.length === 0 && (
           <p className="text-text-muted text-xs text-center py-4">
             Sin transacciones recientes
           </p>
         )}
         <div className="space-y-2">
-          {txList.map((tx: any) => (
+          {txList.map((tx: Transaction) => (
             <div
               key={tx.id}
               className="flex items-center justify-between bg-card rounded-lg px-3 py-2 border border-border"

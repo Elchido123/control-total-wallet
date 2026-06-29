@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { cards, transactions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 class PaymentGateway {
   async processPayment(transactionId: number): Promise<boolean> {
@@ -17,12 +17,11 @@ class PaymentGateway {
       .where(eq(cards.id, tx.cardId));
 
     if (!card || !card.activa || card.bloqueada) return false;
-    if ((card.saldo ?? 0) < (tx.monto ?? 0)) return false;
 
-    const nuevoSaldo = (card.saldo ?? 0) - (tx.monto ?? 0);
-    await db.update(cards)
-      .set({ saldo: nuevoSaldo })
-      .where(eq(cards.id, tx.cardId));
+    await db.execute(sql`
+      UPDATE cards SET saldo = saldo - ${tx.monto}
+      WHERE id = ${tx.cardId} AND saldo >= ${tx.monto}
+    `);
 
     await db.update(transactions)
       .set({ estado: "approved" })

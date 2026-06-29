@@ -4,6 +4,7 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "env": {
-    "AUTH_URL": "https://controltotalwallet.vercel.app"
+    "NEXTAUTH_URL": "https://control-total-wallet.vercel.app",
+    "NEXT_PUBLIC_APP_URL": "https://control-total-wallet.vercel.app"
   }
 }

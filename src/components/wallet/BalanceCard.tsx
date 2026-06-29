@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/utils/format";
 export default function BalanceCard() {
   const [showBalance, setShowBalance] = useState(true);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["balance"],
     queryFn: async () => {
       const res = await fetch("/api/wallet/balance");
@@ -21,6 +21,14 @@ export default function BalanceCard() {
   if (isLoading) {
     return (
       <div className="h-48 rounded-2xl bg-surface animate-pulse border border-border" />
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="h-48 rounded-2xl bg-error/10 border border-error/30 flex items-center justify-center">
+        <p className="text-error text-sm font-semibold">Error al cargar saldo</p>
+      </div>
     );
   }
 

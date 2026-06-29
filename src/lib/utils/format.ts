@@ -1,7 +1,8 @@
 export function formatMoney(amount: number): string {
+  const prefix = amount < 0 ? "-$" : "$";
   return (
-    "$" +
-    amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+    prefix +
+    Math.abs(amount).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   );
 }
 

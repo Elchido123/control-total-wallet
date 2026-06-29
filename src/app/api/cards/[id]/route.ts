@@ -45,7 +45,12 @@ export async function PUT(
   if (!cardId) return NextResponse.json({ error: "ID de tarjeta inválido" }, { status: 400 });
   const userId = safeUserId(session.user.id);
   if (!userId) return NextResponse.json({ error: "ID de usuario inválido" }, { status: 400 });
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
 
   const [card] = await db
     .select()
@@ -97,15 +102,6 @@ export async function DELETE(
     .where(eq(cards.id, cardId));
 
   if (!card || card.userId !== userId) {
-    return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 404 });
-  }
-
-  const [cardToDelete] = await db
-    .select()
-    .from(cards)
-    .where(eq(cards.id, cardId));
-
-  if (!cardToDelete) {
     return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 404 });
   }
 

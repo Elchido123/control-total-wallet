@@ -37,12 +37,12 @@ test.describe("Dashboard", () => {
 
   test("bottom navigation works", async ({ page }) => {
     await page.click('a[href="/dashboard/cards"]');
-    await expect(page).toHaveURL(/\/cards/);
+    await expect(page).toHaveURL(/\/dashboard\/cards/);
 
     await page.click('a[href="/dashboard/transactions"]');
-    await expect(page).toHaveURL(/\/transactions/);
+    await expect(page).toHaveURL(/\/dashboard\/transactions/);
 
     await page.click('a[href="/dashboard/profile"]');
-    await expect(page).toHaveURL(/\/profile/);
+    await expect(page).toHaveURL(/\/dashboard\/profile/);
   });
 });

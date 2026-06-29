@@ -40,10 +40,15 @@ export async function PUT(req: Request) {
 
   const userId = safeUserId(session.user.id);
   if (!userId) return NextResponse.json({ error: "ID de usuario inválido" }, { status: 400 });
-  const body = await req.json();
+  let body: { nombre?: string; direccion?: string; telefono?: string; avatar?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
   const { nombre, direccion, telefono, avatar } = body;
 
-  const updates: Record<string, unknown> = {};
+  const updates: Record<string, string | undefined | null> = {};
   if (nombre !== undefined) updates.nombre = nombre;
   if (direccion !== undefined) updates.direccion = direccion;
   if (telefono !== undefined) updates.telefono = telefono;

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { BookmarkletSDK } from "@/lib/integration/bookmarklet-sdk";
-import { Copy, Check, ExternalLink, Code, Puzzle } from "lucide-react";
+import { Copy, Check, ExternalLink, Code } from "lucide-react";
 
 export default function IntegrationPage() {
   const [copied, setCopied] = useState(false);
@@ -11,7 +11,7 @@ export default function IntegrationPage() {
   const sdk = useMemo(
     () =>
       new BookmarkletSDK({
-        appUrl: "https://app.controltotalwallet.com",
+        appUrl: "https://control-total-wallet.vercel.app",
       }),
     []
   );
@@ -58,7 +58,7 @@ export default function IntegrationPage() {
           href={bookmarkletCode}
           className="block w-full py-3.5 rounded-xl font-bold text-white text-center tracking-wide mb-3"
           style={{ background: "var(--gradient-card)" }}
-          onClick={(e) => {
+          onClick={() => {
             setShowCode(!showCode);
           }}
         >

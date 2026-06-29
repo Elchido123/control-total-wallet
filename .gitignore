@@ -12,5 +12,8 @@ yarn-debug.*
 yarn-error.*
 dev.db
 
-.vercel
-.env*
+.vercel/
+.env
+.env.development
+.env.production
+.env.test

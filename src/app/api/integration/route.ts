@@ -5,11 +5,19 @@ import { FraudPipeline } from "@/lib/anti-fraud/pipeline";
 import { findSiteByHostname } from "@/lib/integration/sites";
 import { NextResponse } from "next/server";
 import { safeUserId } from "@/lib/utils/format";
+import { MAX_TRANSACTION_AMOUNT } from "@/lib/constants";
 
 export async function POST(req: Request) {
   const session = await auth();
-  const body = await req.json();
-  const { site, monto, url, action } = body;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+
+  const { site, monto, url, action } = body as { site?: string; monto?: string; url?: string; action?: string };
 
   if (action === "validate") {
     const siteConfig = findSiteByHostname(site ?? "");
@@ -20,30 +28,30 @@ export async function POST(req: Request) {
   }
 
   if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
   }
 
   if (!monto || !site) {
     return NextResponse.json(
-      { error: "Faltan datos requeridos (monto, site)" },
+      { success: false, error: "Faltan datos requeridos (monto, site)" },
       { status: 400 }
     );
   }
 
   const montoNum = parseFloat(monto);
   if (isNaN(montoNum) || montoNum <= 0) {
-    return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Monto inválido" }, { status: 400 });
   }
 
-  if (montoNum > 19000) {
+  if (montoNum > MAX_TRANSACTION_AMOUNT) {
     return NextResponse.json(
-      { error: "Monto excede el límite de $19,000 MXN" },
+      { success: false, error: `Monto excede el límite de $${MAX_TRANSACTION_AMOUNT.toLocaleString()} MXN` },
       { status: 400 }
     );
   }
 
   const userId = safeUserId(session.user.id);
-  if (!userId) return NextResponse.json({ error: "ID de usuario inválido" }, { status: 400 });
+  if (!userId) return NextResponse.json({ success: false, error: "ID de usuario inválido" }, { status: 400 });
 
   const pipeline = new FraudPipeline();
   const validation = await pipeline.validate({

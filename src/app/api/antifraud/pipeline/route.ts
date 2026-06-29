@@ -9,8 +9,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { monto, cardId, storeId } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+  const { monto, cardId, storeId } = body as { monto?: number; cardId?: number; storeId?: string };
+
+  if (typeof monto !== "number" || monto <= 0) {
+    return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
+  }
 
   const userId = safeUserId(session.user.id);
   if (!userId) {
@@ -21,7 +30,7 @@ export async function POST(req: Request) {
   const result = await pipeline.validate({
     userId,
     cardId,
-    monto: monto ?? 0,
+    monto,
     storeId,
   });
 

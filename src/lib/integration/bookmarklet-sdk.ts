@@ -12,7 +12,7 @@ export class BookmarkletSDK {
   constructor(config: BookmarkletConfig) {
     this.config = { ...config };
     if (!this.config.appUrl) {
-      this.config.appUrl = "https://control-total-wallet.vercel.app";
+      this.config.appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://control-total-wallet.vercel.app";
     }
   }
 

@@ -11,14 +11,14 @@ class CookieCleaner {
 
     try {
       cookiesCleared = this.clearCookies(origin);
-    } catch {}
+    } catch (e) { console.error("CookieCleaner: clearCookies failed", e); }
 
     let storageCleared = false;
     try {
       localStorage.clear();
       sessionStorage.clear();
       storageCleared = true;
-    } catch {}
+    } catch (e) { console.error("CookieCleaner: localStorage/sessionStorage clear failed", e); }
 
     let cacheCleared = false;
     try {
@@ -29,7 +29,7 @@ class CookieCleaner {
         }
         cacheCleared = true;
       }
-    } catch {}
+    } catch (e) { console.error("CookieCleaner: cache clear failed", e); }
 
     return {
       cookiesCleared,
@@ -64,7 +64,7 @@ class CookieCleaner {
           await reg.unregister();
         }
       }
-    } catch {}
+    } catch (e) { console.error("CookieCleaner: serviceWorker unregister failed", e); }
 
     return result;
   }

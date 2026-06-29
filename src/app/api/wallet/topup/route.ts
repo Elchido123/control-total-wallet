@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, transactions } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { safeUserId } from "@/lib/utils/format";
 
@@ -13,8 +13,13 @@ export async function POST(req: Request) {
 
   const userId = safeUserId(session.user.id);
   if (!userId) return NextResponse.json({ error: "ID de usuario inválido" }, { status: 400 });
-  const body = await req.json();
-  const { monto, concepto } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+  const { monto, concepto } = body as { monto?: number; concepto?: string };
 
   if (!monto || monto <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
@@ -32,22 +37,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const [cardLock] = await db
+  await db.execute(sql`
+    UPDATE cards SET saldo = saldo + ${monto}
+    WHERE id = ${card.id}
+  `);
+
+  const [updatedCard] = await db
     .select()
     .from(cards)
-    .where(eq(cards.id, card.id));
-
-  if (!cardLock) {
-    return NextResponse.json(
-      { error: "Tarjeta no encontrada" },
-      { status: 400 }
-    );
-  }
-
-  const nuevoSaldo = (cardLock.saldo ?? 0) + monto;
-  
-  await db.update(cards)
-    .set({ saldo: nuevoSaldo })
     .where(eq(cards.id, card.id));
 
   await db.insert(transactions)
@@ -62,7 +59,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     success: true,
-    saldo: nuevoSaldo,
+    saldo: updatedCard?.saldo ?? (card.saldo ?? 0) + monto,
     message: `Se agregaron $${monto.toFixed(2)} a tu saldo`,
   });
 }

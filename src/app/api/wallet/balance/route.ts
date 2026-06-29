@@ -25,6 +25,7 @@ export async function GET() {
   return NextResponse.json({
     saldo: card.saldo,
     numero: card.numero,
+    titular: card.titular,
     limite: card.limite,
     activa: card.activa,
     bloqueada: card.bloqueada,

@@ -1,10 +1,11 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cards, transactions } from "@/lib/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { FraudPipeline } from "@/lib/anti-fraud/pipeline";
 import { NextResponse } from "next/server";
 import { safeUserId } from "@/lib/utils/format";
+import { MAX_TRANSACTION_AMOUNT } from "@/lib/constants";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -48,16 +49,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { storeId, monto, concepto, cardId } = body;
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
+  }
+  const { storeId, monto, concepto, cardId } = body as { storeId?: string; monto?: number; concepto?: string; cardId?: number };
 
   if (!monto || monto <= 0) {
     return NextResponse.json({ error: "Monto inválido" }, { status: 400 });
   }
 
-  if (monto > 19000) {
+  if (monto > MAX_TRANSACTION_AMOUNT) {
     return NextResponse.json(
-      { error: "Monto excede el límite de $19,000 MXN" },
+      { error: `Monto excede el límite de $${MAX_TRANSACTION_AMOUNT.toLocaleString()} MXN` },
       { status: 400 }
     );
   }
@@ -92,26 +98,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 400 });
   }
 
-  const [cardLock] = await db
+  await db.execute(sql`
+    UPDATE cards SET saldo = saldo - ${monto}
+    WHERE id = ${card.id} AND saldo >= ${monto}
+  `);
+
+  const [updatedCard] = await db
     .select()
     .from(cards)
     .where(eq(cards.id, card.id));
 
-  if (!cardLock) {
+  if (!updatedCard) {
     return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 400 });
   }
 
-  const nuevoSaldo = (cardLock.saldo ?? 0) - monto;
-
-  await db.update(cards)
-    .set({ saldo: nuevoSaldo })
-    .where(eq(cards.id, cardLock.id));
+  if (updatedCard.saldo === card.saldo) {
+    return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
+  }
 
   const [result] = await db
     .insert(transactions)
     .values({
       userId,
-      cardId: cardLock.id,
+      cardId: updatedCard.id,
       storeId,
       monto,
       concepto: concepto ?? "Pago en tienda",
@@ -126,7 +135,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ...result,
-    nuevoSaldo: (card.saldo ?? 0) - monto,
+    nuevoSaldo: (updatedCard.saldo ?? 0),
     fraudChecks: validation.checks,
     proxyAssigned: validation.proxyAssigned,
   });

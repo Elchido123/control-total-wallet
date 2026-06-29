@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npx next build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "env": {
+    "AUTH_URL": "https://controltotalwallet.vercel.app"
+  }
+}

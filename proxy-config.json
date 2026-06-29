@@ -1,0 +1,7 @@
+{
+  "proxies": [
+    { "type": "mock", "ip": "192.168.1.100", "port": 3128, "pais": "MX" },
+    { "type": "mock", "ip": "192.168.1.101", "port": 3128, "pais": "MX" },
+    { "type": "mock", "ip": "10.0.0.50", "port": 8080, "pais": "US" }
+  ]
+}

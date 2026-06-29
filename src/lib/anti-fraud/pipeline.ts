@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { cards, transactions } from "@/lib/db/schema";
-import { eq, gte, and } from "drizzle-orm";
+import { cards } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { CooldownManager } from "./cooldown-manager";
 import { ProxyRotator } from "./proxy-rotator";
 import { TemporalGuard } from "./temporal-guard";
@@ -125,40 +125,6 @@ class FraudPipeline {
       passed: true,
       severity: "info",
       message: "Sin cooldown activo",
-    });
-
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-
-    const todayTx = await db
-      .select()
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.userId, req.userId),
-          gte(transactions.createdAt, todayStart)
-        )
-      );
-
-    const todayTxCount = todayTx.length;
-
-    if (todayTxCount >= 2) {
-      dailyRateLimiter.reset(String(req.userId));
-      checks.push({
-        name: "daily_limit",
-        passed: false,
-        severity: "error",
-        message: "Límite diario alcanzado (máximo 2 transacciones)",
-        details: { used: todayTxCount, max: 2 },
-      });
-      return { passed: false, checks };
-    }
-
-    checks.push({
-      name: "daily_limit",
-      passed: true,
-      severity: "info",
-      message: `Límite diario: ${todayTxCount}/2 usados`,
     });
 
     return { passed: true, checks };

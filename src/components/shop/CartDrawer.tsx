@@ -16,6 +16,11 @@ export default function CartDrawer() {
   const handleCheckout = async () => {
     setCheckingOut(true);
     try {
+      const cardsRes = await fetch("/api/cards");
+      const cardsData = await cardsRes.json();
+      const cardsList = Array.isArray(cardsData?.data) ? cardsData.data : Array.isArray(cardsData) ? cardsData : [];
+      const defaultCard = cardsList[0] ?? null;
+
       const concepto = items
         .map((i) => `${i.nombre} x${i.quantity}`)
         .join(", ");
@@ -28,6 +33,7 @@ export default function CartDrawer() {
           concepto: `Shop: ${concepto}`,
           tipo: "purchase",
           storeId: "shop",
+          cardId: defaultCard?.id,
         }),
       });
 

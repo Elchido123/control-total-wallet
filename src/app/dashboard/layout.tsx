@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LogOut, Home, Store, User, Receipt, CreditCard, Puzzle, Activity, ArrowLeftRight, ShoppingBag } from "lucide-react";
+import { useCartStore } from "@/store/cart-store";
 
 const navItems = [
   { href: "/dashboard", label: "Inicio", icon: Home },
@@ -27,6 +28,7 @@ export default function DashboardLayout({
 }) {
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const cartCount = useCartStore((s) => s.itemCount);
 
   if (status === "loading") {
     return (
@@ -82,7 +84,14 @@ export default function DashboardLayout({
                   isActive ? "text-primary-light" : "text-text-muted"
                 }`}
               >
-                <Icon size={20} />
+                <div className="relative">
+                  <Icon size={20} />
+                  {item.href === "/dashboard/shop" && cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary-light text-black text-[8px] font-bold flex items-center justify-center">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-semibold">{item.label}</span>
               </Link>
             );

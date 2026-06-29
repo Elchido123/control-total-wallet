@@ -8,7 +8,7 @@ import { ShoppingBag, Plus } from "lucide-react";
 
 export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
-  const { addItem, openCart, getItemCount } = useCartStore();
+  const { addItem, openCart, itemCount } = useCartStore();
 
   const filtered = useMemo(
     () =>
@@ -17,8 +17,6 @@ export default function ShopPage() {
         : PRODUCTS.filter((p) => p.categoria === selectedCategory),
     [selectedCategory]
   );
-
-  const itemCount = getItemCount();
 
   return (
     <div className="space-y-5">

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { transactions } from "@/lib/db/schema";
+import { cards, transactions } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { FraudPipeline } from "@/lib/anti-fraud/pipeline";
 import { findSiteByHostname } from "@/lib/integration/sites";
 import { NextResponse } from "next/server";
@@ -74,10 +75,16 @@ export async function POST(req: Request) {
     );
   }
 
+  const [userCard] = await db
+    .select()
+    .from(cards)
+    .where(eq(cards.userId, userId));
+
   const [result] = await db
     .insert(transactions)
     .values({
       userId,
+      cardId: userCard?.id ?? null,
       monto: montoNum,
       concepto: `Pago vía integración en ${site}`,
       estado: "pending",

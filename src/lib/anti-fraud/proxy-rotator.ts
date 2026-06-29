@@ -29,6 +29,7 @@ class ProxyRotator {
   private readonly MAX_HISTORY_PER_USER = 3;
 
   private scores: Map<string, ProxyScore> = new Map();
+  private rotatorDbProxies: ProxyConfig[] = [];
 
   constructor() {
     const syntheticProvider = new MxSyntheticProvider();
@@ -47,6 +48,7 @@ class ProxyRotator {
           port: p.puerto ?? 3128,
           pais: p.pais ?? "MX",
         };
+        this.rotatorDbProxies.push(config);
       }
     }
   }
@@ -171,6 +173,15 @@ class ProxyRotator {
         this.recordProxyForUser(userId, proxy.ip);
         return proxy;
       }
+    }
+
+    const dbAvailable = this.rotatorDbProxies.filter(
+      (p) => !excludeIps.has(p.ip) && p.pais === pais
+    );
+    if (dbAvailable.length > 0) {
+      const proxy = dbAvailable[Math.floor(Math.random() * dbAvailable.length)];
+      this.recordProxyForUser(userId, proxy.ip);
+      return proxy;
     }
 
     return null;

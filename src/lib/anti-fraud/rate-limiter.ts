@@ -19,7 +19,7 @@ export class TokenBucketRateLimiter {
 
     const now = Date.now();
     const elapsed = now - bucket.lastRefill;
-    const tokensToAdd = Math.floor(elapsed / this.refillIntervalMs) * this.maxTokens;
+    const tokensToAdd = Math.floor(elapsed / this.refillIntervalMs);
 
     if (tokensToAdd > 0) {
       bucket.tokens = Math.min(this.maxTokens, bucket.tokens + tokensToAdd);

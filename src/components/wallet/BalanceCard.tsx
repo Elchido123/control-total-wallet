@@ -59,7 +59,7 @@ export default function BalanceCard() {
 
         <div className="flex justify-between items-center border-t border-white/20 pt-3">
           <span className="text-white/80 text-sm tracking-widest font-medium">
-            {data?.numero ?? "**** **** **** ****"}
+            {            (data?.numero?.length > 4 ? "**** **** **** " + data.numero.slice(-4) : data?.numero) ?? "**** **** **** ****"}
           </span>
           <span className="text-white/60 text-xs font-medium">
             {data?.titular ?? ""}

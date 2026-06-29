@@ -45,8 +45,6 @@ export default function TransactionList() {
       case "approved": return "Aprobado";
       case "rejected": return "Rechazado";
       case "pending": return "Pendiente";
-      case "blocked": return "Bloqueado";
-      case "cooldown": return "En espera";
       default: return estado;
     }
   };

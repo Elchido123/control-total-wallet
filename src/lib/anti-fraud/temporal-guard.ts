@@ -69,7 +69,7 @@ export class TemporalGuard {
       }
     }
 
-    const count = this.snapshotCount.get(userId) ?? 0;
+    const count = (this.snapshotCount.get(userId) ?? 0) + 1;
     if (count > this.MAX_SNAPSHOTS_PER_USER) {
       reasons.push(`Demasiadas transacciones en ventana temporal (${count})`);
       details.tooManySnapshots = true;
@@ -81,7 +81,7 @@ export class TemporalGuard {
       proxyIp,
       componentsChanged: 0,
     });
-    this.snapshotCount.set(userId, count + 1);
+    this.snapshotCount.set(userId, count);
 
     setTimeout(() => {
       const current = this.snapshots.get(userId);

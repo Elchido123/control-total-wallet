@@ -56,18 +56,18 @@ describe("CooldownManager.activateCooldown", () => {
     mockDbUpdate();
   });
 
-  it("uses base/2 for first rejection (0 prior rejections) with jitter", async () => {
+  it("uses base for first rejection (0 prior rejections) with jitter", async () => {
     mockDbSelectOnce([]);
     mockDbDefault([]);
     const cm = new CooldownManager();
     const result = await cm.activateCooldown(1);
-    const expected = CooldownManager.BASE_COOLDOWN_MS / 2;
+    const expected = CooldownManager.BASE_COOLDOWN_MS;
     expect(result.durationMs).toBeGreaterThanOrEqual(expected - JITTER_RANGE_MS);
     expect(result.durationMs).toBeLessThanOrEqual(expected + JITTER_RANGE_MS);
     expect(result.blockedUntil).toBeDefined();
   });
 
-  it("uses base for second rejection (1 prior rejection) with jitter", async () => {
+  it("uses 2x for second rejection (1 prior rejection) with jitter", async () => {
     const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
     mockDbSelectOnce([
       { id: 1, cardId: 1, estado: "rejected", createdAt: past },

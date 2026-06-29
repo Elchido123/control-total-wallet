@@ -94,41 +94,41 @@ export async function POST(req: Request) {
   }
 
   const [card] = cardId
-    ? await db.select().from(cards).where(eq(cards.id, cardId))
+    ? await db.select().from(cards).where(and(eq(cards.id, cardId), eq(cards.userId, userId)))
     : await db.select().from(cards).where(eq(cards.userId, userId));
 
   if (!card) {
     return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 400 });
   }
 
-  await db.execute(sql`
+  const updateResult = await db.execute(sql`
     UPDATE cards SET saldo = saldo - ${monto}
     WHERE id = ${card.id} AND saldo >= ${monto}
+    RETURNING *
   `);
-
-  const [updatedCard] = await db
-    .select()
-    .from(cards)
-    .where(eq(cards.id, card.id));
+  const [updatedCard] = updateResult.rows ?? [];
 
   if (!updatedCard) {
-    return NextResponse.json({ error: "Tarjeta no encontrada" }, { status: 400 });
-  }
-
-  if (updatedCard.saldo === card.saldo) {
     return NextResponse.json({ error: "Saldo insuficiente" }, { status: 400 });
   }
+
+  const updatedCardRow = updatedCard as { id: number; saldo: number };
+
+  const ipUsada = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? req.headers.get("x-real-ip")
+    ?? "unknown";
 
   const [result] = await db
     .insert(transactions)
     .values({
       userId,
-      cardId: updatedCard.id,
+      cardId: updatedCardRow.id,
       storeId: isTransfer ? null : storeId,
       monto,
       concepto: concepto ?? (isTransfer ? "Transferencia P2P" : "Pago en tienda"),
       estado: "approved",
       tipo: resolvedTipo,
+      ipUsada,
     })
     .returning();
 
@@ -138,7 +138,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ...result,
-    nuevoSaldo: (updatedCard.saldo ?? 0),
+    nuevoSaldo: (updatedCardRow.saldo),
     fraudChecks: validation.checks,
     proxyAssigned: validation.proxyAssigned,
   });

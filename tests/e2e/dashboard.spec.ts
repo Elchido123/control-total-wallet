@@ -32,7 +32,7 @@ test.describe("Dashboard", () => {
 
   test("quick actions navigate correctly", async ({ page }) => {
     await page.click("text=Enviar");
-    await expect(page).toHaveURL(/\/dashboard\/stores/);
+    await expect(page).toHaveURL(/\/dashboard\/transfer/);
   });
 
   test("bottom navigation works", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { STORES } from "@/lib/utils/stores";
+import { SITES, SITE_LIST } from "@/lib/integration/sites";
 
 export interface BookmarkletConfig {
   appUrl?: string;
@@ -28,11 +28,11 @@ export class BookmarkletSDK {
   }
 
   getSupportedSites() {
-    return STORES.map((s) => ({
-      id: s.id,
-      name: s.nombre,
-      url: s.url,
-      category: s.categoria,
+    return SITE_LIST.map((s) => ({
+      id: s.hostname.replace(/\./g, "-"),
+      name: s.name,
+      url: `https://www.${s.hostname}`,
+      category: s.category,
     }));
   }
 

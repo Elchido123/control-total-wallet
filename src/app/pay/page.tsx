@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { setupPaymentBridge, CTW_ORIGIN } from "@/lib/integration/bridge";
+import { setupPaymentBridge } from "@/lib/integration/bridge";
+import { CTW_ORIGIN } from "@/lib/integration/protocol";
 import { formatMoney } from "@/lib/utils/format";
 
 export default function PayPage() {
@@ -60,14 +61,13 @@ export default function PayPage() {
       if (res.ok) {
         setStatus("success");
 
-        const iframeOrigin = CTW_ORIGIN;
         parent.postMessage(
           {
             type: "PAYMENT_RESULT",
             success: true,
             transactionId: data.id,
           },
-          returnUrl || iframeOrigin
+          CTW_ORIGIN
         );
       } else {
         setStatus("error");
@@ -78,14 +78,14 @@ export default function PayPage() {
             success: false,
             error: data.error ?? "Error al procesar el pago",
           },
-          returnUrl || CTW_ORIGIN
+          CTW_ORIGIN
         );
       }
     } catch {
       setStatus("error");
       parent.postMessage(
         { type: "PAYMENT_RESULT", success: false, error: "Error de conexión" },
-        returnUrl || CTW_ORIGIN
+        CTW_ORIGIN
       );
     }
   }, [monto, siteName, returnUrl]);
@@ -93,7 +93,7 @@ export default function PayPage() {
   const handleCancel = useCallback(() => {
     parent.postMessage(
       { type: "PAYMENT_RESULT", success: false, error: "Usuario canceló" },
-      returnUrl || CTW_ORIGIN
+      CTW_ORIGIN
     );
   }, [returnUrl]);
 

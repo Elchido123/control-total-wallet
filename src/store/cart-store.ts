@@ -12,6 +12,8 @@ export interface CartItem {
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
+  total: number;
+  itemCount: number;
   addItem: (product: { id: string; nombre: string; precio: number; icon: string }) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -21,6 +23,7 @@ interface CartState {
   closeCart: () => void;
   getTotal: () => number;
   getItemCount: () => number;
+  _recompute: () => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -28,6 +31,8 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      total: 0,
+      itemCount: 0,
 
       addItem: (product) => {
         const items = get().items;
@@ -54,10 +59,12 @@ export const useCartStore = create<CartState>()(
             ],
           });
         }
+        get()._recompute();
       },
 
       removeItem: (productId) => {
         set({ items: get().items.filter((i) => i.productId !== productId) });
+        get()._recompute();
       },
 
       updateQuantity: (productId, quantity) => {
@@ -70,9 +77,13 @@ export const useCartStore = create<CartState>()(
             i.productId === productId ? { ...i, quantity } : i
           ),
         });
+        get()._recompute();
       },
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => {
+        set({ items: [] });
+        get()._recompute();
+      },
 
       toggleCart: () => set({ isOpen: !get().isOpen }),
       openCart: () => set({ isOpen: true }),
@@ -88,10 +99,17 @@ export const useCartStore = create<CartState>()(
       getItemCount: () => {
         return get().items.reduce((sum, i) => sum + i.quantity, 0);
       },
+
+      _recompute: () => {
+        const items = get().items;
+        const total = items.reduce((sum, i) => sum + i.precio * i.quantity, 0);
+        const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+        set({ total, itemCount });
+      },
     }),
     {
       name: "ctw-cart",
-      partialize: (state) => ({ items: state.items }),
+      partialize: (state) => ({ items: state.items, total: state.total, itemCount: state.itemCount }),
     }
   )
 );

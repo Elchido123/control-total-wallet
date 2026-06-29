@@ -43,6 +43,5 @@ export type IframeMessage =
   | PongMessage;
 
 export function isValidOrigin(origin: string): boolean {
-  if (typeof window === "undefined") return origin === CTW_ORIGIN;
-  return origin === CTW_ORIGIN || origin === window.location.origin;
+  return origin === CTW_ORIGIN;
 }

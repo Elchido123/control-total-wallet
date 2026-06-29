@@ -99,7 +99,7 @@ class CooldownManager {
 
     const baseCooldown = Math.min(
       CooldownManager.BASE_COOLDOWN_MS *
-        Math.pow(CooldownManager.ESCALATION_FACTOR, rejectionCount - 1) * factor,
+        Math.pow(CooldownManager.ESCALATION_FACTOR, Math.max(0, rejectionCount - 1)) * factor,
       CooldownManager.MAX_COOLDOWN_MS
     );
 

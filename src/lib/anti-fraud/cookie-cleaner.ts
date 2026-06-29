@@ -40,6 +40,7 @@ class CookieCleaner {
   }
 
   private clearCookies(origin?: string): number {
+    if (typeof document === "undefined") return 0;
     let count = 0;
     const cookies = document.cookie.split(";").map((c) => c.trim().split("=")[0]);
 
